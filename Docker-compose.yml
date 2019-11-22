@@ -1,0 +1,97 @@
+app:
+  build: .
+  dockerfile: Dockerfile
+  tty: true
+  stdin_open: true
+  volumes:
+    - .:/usr/src/app
+  environment:
+    ############################################
+    #########CONNECT DATABASE ELASTIC###########
+    - URL_ELASTIC=http://estests_engine:9200
+    ############################################
+    #########APM########################
+    - SERVICE_NAME=loss-prevention-engine-strategy
+    - ELASTIC_APM_APP_NAME=flask-apm-client-dev
+    # Use if APM Server requires a token
+    - ELASTIC_APM_SECRET_TOKEN=d910fe18cd0fde99ee282685cc7046e14a8491df474b85c8
+    # Set custom APM Server URL (default: http://localhost:8200)
+    - ELASTIC_APM_SERVER_URL=http://apm-server:8200
+    - DEBUG=True
+    - FLASK_ENV=development
+  ports:
+    - 5000:5000
+
+web:
+  extends: app
+  command: "flask run --host=0.0.0.0 --port=5000"
+  links:
+    - elasticsearch
+    - kibana
+    - apm-server
+
+# #######################
+# #### ELASTIC
+# #######################
+
+elasticsearch:
+  image: docker.elastic.co/elasticsearch/elasticsearch:7.4.2
+  container_name: elasticsearch
+  environment:
+    - node.name=elasticsearch
+    - discovery.seed_hosts=elasticsearch
+    - cluster.initial_master_nodes=elasticsearch
+    - cluster.name=docker-cluster
+    - bootstrap.memory_lock=true
+    - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+  ulimits:
+    memlock:
+      soft: -1
+      hard: -1
+  volumes:
+    - 'esdata01:/usr/share/elasticsearch/data'
+  ports:
+    - 9200:9200
+  expose:
+    - "9200"
+
+#######################
+#### KIBANA
+#######################
+
+kibana:
+  image: docker.elastic.co/kibana/kibana:7.4.2
+  container_name: kibana
+  hostname: kibana
+  environment:
+    - server.name=kibana
+    - elasticsearch.url=http://elasticsearch:9200
+    - elasticsearch.port=9200
+  ports:
+    - 5601:5601
+  expose:
+    - "5601"
+  links:
+    - elasticsearch
+
+#######################
+#### APM
+#######################
+
+apm-server:
+  image: docker.elastic.co/apm/apm-server:7.4.2
+  container_name: apm-server
+  hostname: apm-server
+  environment:
+    - output.elasticsearch.hosts=http://elasticsearch:9200
+    - apm-server.host=0.0.0.0:8200
+    - apm-server.secret=d910fe18cd0fde99ee282685cc7046e14a8491df474b85c8
+    - setup.kibana.host=kibana:5601
+
+  ports:
+    - 8200:8200
+  expose:
+    - "8200"
+  links:
+    - elasticsearch
+    - kibana

@@ -12,17 +12,18 @@ apm = ElasticAPM(app)
 def index():
     return "Hello World!"
 if __name__ == '__main__':
-    app.run()
+    app.run(debug=False)
+
+@app.errorhandler(404)
+def not_found_error(error):
+ return render_template('404.html'), 404
 
 @app.errorhandler(500)
 def internal_error(error):
-    return render_template('500.html'), 500
+ return render_template('500.html'), 500
 
 @app.route('/divbyzero')
 def divbyzero():
     num = 2 / 0
     return "hello world - " + str(num)
 
-@app.errorhandler(500)
-def internal_error(error):
- return render_template('500.html'), 500
